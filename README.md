@@ -1,1 +1,2 @@
 # jenkins-project
+This project was completed as the midterm in my DevOps capstone course. The assignment was to optimize and streamline the deployments and pipeline found in the /context directory. The proposal and refactored deployments and pipeline can be found in the /proposal directory.

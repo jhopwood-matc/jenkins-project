@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+
+  WebHTTPPort:
+    Type: Number
+  
+  WebSSHPort:
+    Type: Number
+
+  VPC:
+    Type: String
+
+Resources:
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref WebHTTPPort
+          ToPort: !Ref WebHTTPPort
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref WebSSHPort
+          ToPort: !Ref WebSSHPort
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: web-sg
+
+  WebEC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - LabRole
+
+Outputs:
+    
+  WebServerSecurityGroup:
+    Value: !Ref WebServerSecurityGroup
+
+  WebEC2InstanceProfile:
+    Value: !Ref WebEC2InstanceProfile

@@ -1,0 +1,92 @@
+KEY CHALLENGES
+_______________________________________________________________________________
+
+While setting up the Jenkins server initially, the team ran into four key
+challenges. These challenges proved difficult to solve, however in doing so the
+team learned a great deal about troubleshooting practices as well as some of 
+the more detailed workings of Jenkins. These issues were:
+    1. An incompatible Java JDK version that caused the build to fail.
+    2. Maven dependency issues where sometimes they would be missing -causing
+       build failures again.
+    3. Difficulties with the GitHub Token (classic) authorization that caused
+       numerous errors due to permission issues.
+    4. Overall performance of the Jenkins server.
+
+MISSING JAVA JDK
+The first headache that the team ran into was a missing Java JDK version. For
+the version of maven that our environment is using, it requires java jdk 11;
+however, Jenkins was unable to locate this jdk, and thus it would cause the 
+builds to fail.
+
+MISSING MAVEN DEPENDENCIES
+Next, the builds would seem to fail at random times due to missing maven
+dependencies during the process. Unfortunately, the team was not able to
+discover exactly which dependencies were causing the error; however, maven was
+very clear that it was missing necessary dependencies and thus could not
+succeed at building. 
+
+GITHUB TOKEN ERRORS
+When supplying the token for the password in the GitHub credentials to Jenkins,
+it seemed unreliable. It felt like sometimes it would work, and sometimes it
+wouldn't. Overall, Jenkins was not able to access the repository in the correct
+manner to retrieve the code and thus have any semblance of a pipeline at all.
+
+OVERALL PERFORMANCE
+Lastly, the Jenkins Server was very non-performant. It was phenomenally slow
+taking many minutes to load each page for the user. Additionally builds were
+entirely unreliable. Some would work, while others would hang indefinitely
+causing the server to crash and unable to shut down. The server would need to
+be entirely killed, and set up again. This decimated productivity. 
+
+
+METHODS
+_______________________________________________________________________________
+
+MISSING JAVA JDK
+The cause for the missing Java JDK version was found to be that the correct
+version was never installed in the first place. To solve the issue for the
+future, a line was added to the Jenkins setup script in the Cloudformation
+template to ensure that the correct version was on machine.
+    - 'apt install openjdk-11-jdk -y'
+
+MISSING MAVEN DEPENDENCIES
+The reason that this was happening, was because sometimes Maven would lose a 
+dependency because it failed to install, or that one would be out of date. I 
+suppose it could be from any number of reasons. To address this issue, a '-U'
+flag was added to the end of the maven build command in the 'Build' stage of
+pipeline. This flag ensure that the dependencies were reinstalled with each
+new build. 
+
+GITHUB TOKEN ERRORS
+The token issue was found to be an error with the permissions assigned to the 
+token. Thus, the Jenkins Server had insufficient access to the repo and was
+unable to complete its tasks. To solve this, it was made sure that the 
+permissions afforded from the token were write:packages as well as
+admin:repo_hook. 
+
+OVERALL PERFORMANCE
+After checking with the Jenkins documentation, it became clear that the jenkins
+server did not meet the minimum requirements of RAM. Additionally, it lacked
+recommended computing resources. To solve this, the Jenkins Server instance
+type was switched to an 'm5.large'. This instance type has 700% more RAM and
+100% more CPU cores.
+
+
+PERFORMANCE IMPACT
+_______________________________________________________________________________
+
+INSTALLING OPENJDK11
+By installing the correct version of the Java JDK, the error was completely
+eliminated, and was not encountered again. It also decreased setup time, 
+because the version did not need to be retroactively installed.
+
+-U FLAG APPENDED
+This flag removed the dependency issues and allowed builds to succeed.
+
+FIXING TOKEN PERMISSIONS
+This fix allowed Jenkins to correctly access the repo. Thus, the pipeline
+became functional.
+
+CHANGING TO M5.LARGE
+The impact of this was enormous. After changing the instance type, performance
+no longer became a bottleneck for productivity. 

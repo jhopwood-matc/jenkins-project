@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploys Jenkins CI Server
+
+
+Resources:
+
+  # Just the Jenkins elastic IP
+  EIPStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cfn-templates-josephhopwood.s3.us-east-1.amazonaws.com/jenkins-eip.yaml
+
+  # Jenkins security group and instance profile
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cfn-templates-josephhopwood.s3.us-east-1.amazonaws.com/jenkins-security.yaml
+      Parameters:
+        JenkinsSSHPort: 22
+        JenkinsHTTPPort: 8080
+    
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cfn-templates-josephhopwood.s3.us-east-1.amazonaws.com/jenkins-server.yaml
+      Parameters:
+
+        InstanceType: m5.large
+        
+        KeyName: vockey
+
+        ImageId: ami-04b4f1a9cf54c11d0
+
+        Name: jenkins-server
+
+        JenkinsEIP:
+          Fn::GetAtt: [EIPStack, Outputs.JenkinsEIP]
+
+        JenkinsInstanceProfile:
+          Fn::GetAtt: [SecurityStack, Outputs.JenkinsInstanceProfile]
+
+        JenkinsSecurityGroup:
+          Fn::GetAtt: [SecurityStack, Outputs.JenkinsSecurityGroup]
+
+        
+

@@ -1,0 +1,13 @@
+Resources:
+
+  WebEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}"
+
+Outputs:
+
+  WebEIP:
+    Value: !Ref WebEIP

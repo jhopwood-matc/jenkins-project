@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Deploys network, compute, security, and IP stacks for the PRODUCTION web
+  server that hosts the user management app.
+
+Resources:
+
+  EIPStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cfn-templates-josephhopwood.s3.us-east-1.amazonaws.com/web-eip.yaml
+
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cfn-templates-josephhopwood.s3.us-east-1.amazonaws.com/web-network.yaml
+      Parameters:
+
+        VpcCIDR:            10.192.0.0/16
+        EnvironmentName:    production network
+        PublicSubnet1CIDR:  10.192.10.0/24
+        PublicSubnet2CIDR:  10.192.11.0/24
+        PrivateSubnet1CIDR: 10.192.20.0/24
+        PrivateSubnet2CIDR: 10.192.21.0/24
+
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cfn-templates-josephhopwood.s3.us-east-1.amazonaws.com/web-server.yaml
+      Parameters:
+
+        KeyName:      vockey
+        ImageId:      ami-0b898040803850657
+        InstanceType: t2.micro
+
+        WebEC2InstanceProfile:
+          Fn::GetAtt: [SecurityStack, Outputs.WebEC2InstanceProfile]
+
+        WebEIP: 
+          Fn::GetAtt: [EIPStack, Outputs.WebEIP]
+
+        PublicSubnet1:
+          Fn::GetAtt: [NetworkStack, Outputs.PublicSubnet1]
+
+        WebServerSecurityGroup:
+          Fn::GetAtt: [SecurityStack, Outputs.WebServerSecurityGroup]
+
+  
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cfn-templates-josephhopwood.s3.us-east-1.amazonaws.com/web-security.yaml
+      Parameters:
+
+        WebHTTPPort: 8080
+        WebSSHPort:  22
+        VPC:
+          Fn::GetAtt: [NetworkStack, Outputs.VPC]
+

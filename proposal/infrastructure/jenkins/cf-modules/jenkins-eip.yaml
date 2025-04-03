@@ -1,0 +1,13 @@
+Resources:
+
+  JenkinsEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: jenkins-eip
+
+Outputs:
+
+  JenkinsEIP:
+    Value: !Ref JenkinsEIP

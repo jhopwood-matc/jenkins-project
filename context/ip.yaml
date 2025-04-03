@@ -1,0 +1,39 @@
+Resources:
+  WebEIPDev:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-dev"
+  WebEIPStaging:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-staging"
+  JenkinsEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: jenkins
+
+Outputs:
+
+  WebEIPDev:
+    Description: Elastic IP for our Web Server
+    Value: !Ref WebEIPDev
+    Export:
+      Name: !Sub "WebEIP-${AWS::StackName}-dev"
+
+  WebEIPStaging:
+    Description: Elastic IP for our Web Server
+    Value: !Ref WebEIPStaging
+    Export:
+      Name: !Sub "WebEIP-${AWS::StackName}-staging"
+
+  JenkinsEIP:
+    Description: Elastic IP for our Jenkins Server
+    Value: !Ref JenkinsEIP
+    Export:
+      Name: !Sub "JenkinsEIP-${AWS::StackName}"

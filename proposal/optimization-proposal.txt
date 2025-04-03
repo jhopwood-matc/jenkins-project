@@ -1,0 +1,218 @@
+
+KEY IMPROVEMENTS
+_______________________________________________________________________________
+
+The most glaring issue in terms of the current design was the architecture of
+Cloudformation (cfn) templates. To begin with, I disagree that the 'ip.yaml'
+should provision both the EIPs for the Jenkins server as well as the Web
+server. These are two distinctly different segments of the environment that 
+should not have their dependencies mixed as to allow for smoother deployments
+and better modularization and scalability in the long run. For example, with
+the proposed optimizations, the Jenkins server and web servers can be deployed
+in any order without issue.
+
+Focusing on another issue that comes from the current design, we can see that
+there are many hardcoded values in the templates due to dependency issues that
+were not properly addressed. Thus we arrive at our first proposal and key
+improvement:
+    1. Refactor the Cloudformation templates to use a, modularized, nested
+       stacks architecture.
+
+This change addresses three large issues:
+    a. Potential faults in the ordering during the provisioning process.
+    b. The reliance on numerous hardcoded values when referencing dependencies
+    c. Scalability options for the future
+
+ORDERING ISSUES
+Firstly, as it stands right now, the order of the provisioning done in the 
+'create-stacks.sh' is a factor. The infrastructure is unfortunately provisioned
+such that the vpc has to be deployed before the web server, and the security
+after the vpc, but before the web server. The EIPs must be provisioned before 
+all of this, and the Jenkins server must be deployed after the EIPs. Now, it 
+not that order isn't an inherent characteristic when deploying infrastructure,
+but for an optimal design, it is best to automate ordering as much as possible
+to avoid user error when, contrarily, manually ordering deployments.
+Thankfully, Cloudformation is able to handle this for us.
+
+HARDCODED VALUES
+Secondly, because the templates are unable to talk to each other, there is a
+strong reliance on using hardcoded imported values that depend on exported
+cloudformation output names staying the same. For instance the Jenkins server,
+in its EIP association, relies on retrieving the EIP by referencing a
+'JenkinsEIP-user-management-ip'. Firstly, it is salient that the Jenkins CI
+server should not be dependent on IP from an IP stack that is associated with
+web application server's deployment, since that deployment should be happening
+after the Jenkins server. But, what is the point is that this imported value
+is hardcoded to refer to a stack name that is held together by crossing our
+fingers it doesn't change. Thus if we were to leverage cloudformation's 
+nested stack features, we can pass all these values along the hierarchy with
+no dependency on such naming conventions or need to export.
+
+SCALABILITY
+Lastly, a benefit of using nested templates is the scalability. Specifically,
+the use of this provisioning design encourages modularization. Thus, the code
+becomes reusable, and adding new resources to a deployment requires far less
+cognitive load due to the reduction in complexity overall as a result.
+
+
+On a similar note to what is discussed in the aforementioned section about 
+hardcoded values. We see additional hardcoded values in the templates not due
+to dependency issues, but simply because best practices around these 
+assignments were not followed. For instance, for the Jenkins server as well as
+the web server, in regards to the security groups, the ports are hardcoded to 
+8080 and 22 for Http and ssh respectively. In the event that we were to create
+more resources and reuse such numbers, we would want to have these port values 
+stored in variables so that all property's values that were dependent on them 
+could be changed simultaneously with minimal chance for error as opposed to 
+changing multiple consecutively. So, I propose:
+    2. Parameterization of most significant hardcoded values in the
+       cloudformation templates
+
+
+On the vein of refactoring, I propose some naming changes. I find that the
+current naming conventions for the cloudformation templates lacks coherency.
+Additionally, with the nested templates, some restructuring of the
+'./infrastructure' directory is in order. These changes will help with overall
+organization and maintainability of the code as well as clarity when developing
+and during deployments.
+    3. Rename cloudformation files to suit a clearer naming convention.
+    4. Add a sensible directory hierarchy to the './infrastructure' in order
+       with the added naming convention.
+Below, I have included my suggestions.
+
+    + renamed files
+        * "webserver.yaml" is now "web-server.yaml"
+        * "jenkins.yaml" is now "jenkins-server.yaml"
+        * "vpc.yaml" is now "web-network.yaml"
+        * "security.yaml" is now "web-security.yaml"
+        * "ip.yaml" is now "web-eip.yaml"
+    + created a file and split jenkins security resources into it.
+        * "jenkins-security.yaml"
+    + introduced new folder organization in infrastructure folder.
+        * created folder "web"
+        * created folder "jenkins"
+        * created folder "cf-modules" in "web" and "jenkins"
+    ~ moved files
+        * moved "jenkins-eip.yaml","jenkins-server.yaml" into 
+          "./jenkins/cf-modules"
+        * moved "jenkins-root.yaml" into "./jenkins"
+        * moved "web-network.yaml","web-server.yaml",""web-security.yaml,
+          "web-eip.yaml" into "./web/cf-modules"
+        * moved "web-root-production.yaml" into "./web"
+        * moved "web-root-dev.yaml" into "./web"
+
+
+Another change that is recommended is removing the differentiation between dev
+and staging in terms of the web servers. In the initial configuration, there
+are three elastic IPs that are reserved. However, only one web server is
+deployed along with the jenkins server. This seems improperly configured.
+Instead, in the new configuration, I propose the following:
+    5. Deploy a dev web stack and a production web stack separately, that use
+       identical configurations, and take advantage of the modularity
+       provided in the previous template refactoring.
+
+In practice, this means that the steps in the Jenkins pipeline become more
+accurate. In the 'Deploy-Dev-infrastructure' stage, it will be Specifically
+deploying the dev web stack as well as moving the user-management app onto
+that web server in the subsequent 'Deploy' stage. Naturally, from this we
+must make changes to the 'create-stacks.sh' script. I propose:
+    6. The 'create-stacks.sh' script deploys three distinct stacks of
+       production web, dev web, and jenkins server.
+
+Since these stacks are well-modularized, the order of deployment has no bearing
+on the end result of the provisioned infrastructure. Because of our
+aforementioned design decisions, the jenkins server will always be deploying to
+the dev web stack. However, when the app becomes production-ready, setting up
+another pipeline to deploy to production will prove trivial. 
+
+
+While on the topic of the 'create-stacks.sh', there are other changes that can
+be made as well that will prove impactful. First, and most simply:
+    7. Define a 'REGION' variable at the top of the script and sub that in for
+       all of the '--region' arguments passed in for all three stacks.
+
+In our case, our 'REGION' is going to be 'us-east-1'. This change is proposed
+because it ensure that all of our infrastructure will always be provisioned in
+the same region. And, in the event that we want to change regions, there is not
+a chance that a stack could be misconfigured and not synced with the others.
+
+Also, we can make a major addition at the end of the script. Currently, it is a
+somewhat laborious process to retrieve the public IP of the Jenkins Server, and
+it is easily argued that it is even more involved to get the initial admin
+password after startup. Therefore, I propose the following additions to the
+'create-stacks.sh' script:
+    8. Add a command at the end of the script to echo out the URL of the
+       Jenkins server. 
+    9. Add a command at the end of the script that will automatically get the
+       initial admin password for use and echo it out. 
+
+
+Currently, the Jenkins Server is not easily identifiable in the EC2 console
+home, or easily queryable using the AWS CLI. I should mention that the
+previous change is dependent on the instance being easily identifiable through
+the AWS CLI to get its IP. Thus, we must add some simple identification to the
+Jenkins server.
+    10. Add a 'Name' tag 'jenkins-server'.
+
+
+One issue that is prevalent in the current configuration is the incompatible
+Java version that gets installed on the Jenkins server during it setup script.
+The Jenkins server is looking for a openjdk11 version; however, it only gets
+setup with openjdk21.
+This is a simple fix, so I propose:
+    11. Add 'apt install openjdk-11-jdk -y' to install the correct Java version
+        on the Jenkins server during its setup script.
+
+
+Another issue that presents itself is salient performance issues of the Jenkins
+server. It frequently becomes extraordinarily slow, taking minutes to load
+pages, and having indefinite build times that hang and crash the instance.
+Currently, the instance is of type 't2.micro', but this simply does not meet
+minimum spec requirements for a Jenkins server. There are better options
+available that will give the server significantly more RAM and double the
+computing power for reasonable pricing. I propose:
+    12. Change the Jenkins Server instance type to 'm5.large'.
+
+
+Finally, one last change is in order. During troubleshooting builds, it was 
+discovered that occasionally, Maven would fail to meet all of the dependencies
+required for the build. It would continually error out, and refuse to build
+because it was missing one or more. To prevent this from happening, a '-U'
+option can be appended to the maven build command run in the Jenkinsfile. This
+flag re-downloads all of the dependencies when building so that if anything
+changes, it would be resolved immediately. I propose:
+    13. Append '-U' to the maven build command.
+
+
+
+DISCUSSION
+_______________________________________________________________________________
+
+More improvements are possible, but seem to be too difficult to implement by
+the deadline and somewhat beyond the scope of the project in terms of what is 
+expected from my experience level. Such improvements are with concern to the 
+configuration of the Jenkins server automatically on deployment. 
+
+These improvements mainly include: 
+
+    * Automating or skipping the initial setup wizard process
+    * Automation the creation of the admin user
+    * Automating the installation of the necessary plugins
+    * Automating the creation of the pipeline job
+    * Automating the inputting of credentials to auth with github
+
+Various tools exist to make these tasks possible. Due to a number of reasons
+mainly regarding sparse documentation and a relatively underdeveloped ecosystem
+as well as impactful design decisions by the creators of Jenkins, using these
+tools at the moment effectively does not seem possible. In the future, these
+tools could be explored more in depth, and hopefully yield successful
+automation of many of the aforementioned tasks. Such tools would be:
+
+    * Configuration management tools such as Ansible, Puppet, and Chef
+    * Jenkins CLI
+    * $JENKINS_HOME/init.groovy.d/ Groovy scripts
+    * Jenkins Configuration as Code or JCasC plugin
+
+
+
+

@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Security Group for Jenkins Server
+
+Parameters:
+
+  JenkinsSSHPort:
+    Type: Number
+
+  JenkinsHTTPPort:
+    Type: Number
+
+
+Resources:
+  
+  JenkinsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Jenkins to 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref JenkinsHTTPPort
+          ToPort: !Ref JenkinsHTTPPort
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref JenkinsSSHPort
+          ToPort: !Ref JenkinsSSHPort
+          CidrIp: 0.0.0.0/0
+
+  JenkinsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - LabRole
+
+Outputs:
+  
+  JenkinsSecurityGroup:
+    Value: !Ref JenkinsSecurityGroup
+
+  JenkinsInstanceProfile:
+    Value: !Ref JenkinsInstanceProfile
